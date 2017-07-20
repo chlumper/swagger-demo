@@ -12,11 +12,16 @@ using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.Swagger;
 using Microsoft.Extensions.PlatformAbstractions;
 using System.IO;
+using Moon.AspNetCore.Authentication.Basic;
+using System.Security.Claims;
+using Swashbuckle.AspNetCore.Examples;
 
 namespace dotnet_core
 {
     public class Startup
     {
+        private const string password = "test123";
+
         public Startup(IHostingEnvironment env)
         {
             var builder = new ConfigurationBuilder()
@@ -34,6 +39,7 @@ namespace dotnet_core
         {
             // Add framework services.
             services.AddDbContext<DataContext>(opt => opt.UseInMemoryDatabase());
+            services.AddAuthorization();
             services.AddMvc();
 
             // Register the Swagger generator, defining one or more Swagger documents
@@ -46,10 +52,17 @@ namespace dotnet_core
                     License = new License { Name = "MIT License", Url = "https://example.com/license" }
                 });
 
-                //Set the comments path for the swagger json and ui.
+                // Set the comments path for the swagger json and ui.
                 var basePath = PlatformServices.Default.Application.ApplicationBasePath;
                 var xmlPath = Path.Combine(basePath, "dotnet-core.xml"); 
                 c.IncludeXmlComments(xmlPath);
+
+                // Enable Basic Authentication in Swagger
+                c.AddSecurityDefinition("basic", new BasicAuthScheme { Type = "basic" });
+                c.DocumentFilter<BasicAuthDocumentFilter>();
+
+                c.DescribeAllEnumsAsStrings();
+                c.DescribeStringEnumsInCamelCase();
             });
         }
 
@@ -58,6 +71,24 @@ namespace dotnet_core
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
+
+            // WARNING! Never ever use the Basic authentication with non-SSL connection.
+            app.UseBasicAuthentication(new BasicAuthenticationOptions {
+                Realm = $"Password: {password}",
+                Events = new BasicAuthenticationEvents {
+                    OnSignIn = c =>
+                    {
+                        if (c.Password == password)
+                        {
+                            var claims = new[] { new Claim(ClaimsIdentity.DefaultNameClaimType, c.UserName) };
+                            var identity = new ClaimsIdentity(claims, c.Options.AuthenticationScheme);
+                            c.Principal = new ClaimsPrincipal(identity);
+                        }
+
+                        return Task.FromResult(true);
+                    }
+                }
+            });
 
             app.UseMvc();
             
@@ -68,7 +99,8 @@ namespace dotnet_core
             app.UseSwaggerUI(c =>
             {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "Sample Movie DB");
-            });
+            });         
+
         }
     }
 }

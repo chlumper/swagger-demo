@@ -1,5 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace dotnet_core.Models
 {
@@ -28,13 +30,41 @@ namespace dotnet_core.Models
         ///<summary>
         /// The rating for the movie.
         ///</summary>
-        public double Rating {get;set;}
+        [Range(0,5)]
+        public int Rating {get;set;}
         
+        /// <summary>
+        /// The genre of the movie
+        /// </summary>
+        [JsonConverter(typeof(StringEnumConverter))]
+        public Genre Genre {get;set;}
+
         ///<summary>
         /// The IMDB id of the movie.
         ///</summary>
+        /// <example>tt1234567</example>
         [RegularExpression(@"^tt\d{7}$")]
+        [StringLength(9, MinimumLength = 9)]
         public string ImdbId {get;set;}
+    }
+
+
+    /// <summary>
+    /// The movie genre
+    /// </summary>
+    public enum Genre {
+        ///<summary>
+        /// None
+        ///</summary>
+        None,
+        ///<summary>
+        /// Drama
+        ///</summary>
+        Drama,
+        ///<summary>
+        /// Comedy
+        ///</summary>
+        Comedy
     }
 
 }
